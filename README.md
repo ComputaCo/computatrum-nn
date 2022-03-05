@@ -38,6 +38,10 @@ while True:
 
 We actually make the computer environment just another agent in the multiagent network. The computer environment is a child of the multiagent network and is responsible for running the computer and interacting with the zookeeper.
 
+## Final Test
+
+
+
 ## Objections
 
 **"You're inciting the third AI-winter by boasting about 'an AI that can program itself'."** Computatrum demonstrates remarkable performance across a broad variety of tasks and skills including self-programming. Some may misinterpret this ability with the precept that it can continually optimize itself and humans are done driving ML evolution. These people will be dissapointed by the fact that the only thing that is driving evolution is the human mind, but I cannot make them believe otherwise until after they see computatrum's shortcomings themselves.
