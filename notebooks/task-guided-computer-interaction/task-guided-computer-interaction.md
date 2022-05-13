@@ -167,7 +167,7 @@ with {no,video,webpage,ad-hoc teacher forcing} assistance.
 
 Exceptions:
 - no demonstration and ad-hoc teacher forcing.
-- no demonstation and PPO
+- no demonstration and PPO
 
 Also unsupervised exploration using {input reconstruction AND/OR input prediction} on {input,output,all} modalities with data collected from live interaction with no assistance.
 
