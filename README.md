@@ -57,10 +57,6 @@ We actually make the computer environment just another agent in the multiagent n
 
 ## Objections
 
-**"You're inciting the third AI-winter by boasting about 'an AI that can program itself'."** Computatrum demonstrates remarkable performance across a broad variety of tasks and skills including self-programming. Some may misinterpret this ability with the precept that it can continually optimize itself and humans are done driving ML evolution. These people will be dissapointed by the fact that the only thing that is driving evolution is the human mind, but I cannot make them believe otherwise until after they see computatrum's shortcomings themselves.
-
-**"You shouldn't give AI unrestrained internet access."** Surfing the Internet presents many risks to and from all intelligences (human and artificial). However we humans press forward understanding that benefits outweigh the risks. Computatrum is trained under careful supervision, and its companion site computatrum.io allows the entire Internet community to observe and vote to shutdown public running computatra.
+**"You shouldn't give AI unrestrained internet access."** Surfing the Internet presents many risks to and from all intelligences (human and artificial). However we humans press forward understanding that benefits outweigh the risks. Computatrum wil be trained under careful supervision, and its companion site computatrum.io will allow the entire Internet community to observe and vote to shutdown public running computatra.
 
 **"Letting an AI autonomously program itself is a bad idea."** Stop watching science fiction and start watching reality. (Actually, I only typed "Stop watching science fiction" and copilot suggested the rest. LOL) It takes a lot of effort to steer AI in *any* direction -- including malevolent ones.
-
-**"Developing human-like artificial intelligence; that's playing God!"** Computatrum is infinitely times less intelligent than humans. It's just a computer program. You are still very special.
