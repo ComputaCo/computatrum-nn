@@ -17,6 +17,8 @@ import torch
 import torchaudio
 import transformers
 
+from hoists import declare
+
 Tensor = ivy.Tensor
 
 
@@ -42,116 +44,6 @@ class Agent:
         pass
     def train(self, traj):
         pass
-
-
-def hoists(*, bases=()):
-    def hoists_decorator(fn):
-        # fn is a method, just add spread update to __init__
-        if inspect.ismethod(fn):
-            ## get class
-            cls = fn.__self__.__class__
-            ## wrap __init__
-            old_init = cls.__init__
-            old_init_params = inspect.getfullargspec(old_init).args
-
-            def new_init(self, *a, **kws):
-                # group params by old_init and not old_init
-                old_init_kws = {}
-                not_old_init_kws = {}
-                for k, v in kws.items():
-                    if k in old_init_params:
-                        old_init_kws[k] = v
-                    else:
-                        not_old_init_kws[k] = v
-                ## call old_init with old_init_kws
-                old_init(self, *a, **old_init_kws)
-                ## update self with not_old_init_kws
-                self.__dict__.update(not_old_init_kws)
-
-            cls.__init__ = new_init
-            return fn
-
-        elif inspect.isclass(fn):
-            raise NotImplementedError("hoists decorator does not support classes")
-
-        elif inspect.isfunction(fn):
-            # fn is a function, turn function into class
-            t_dict = {}
-            bases = (Callable, *bases)
-            t_dict.update(fn.__dict__)
-            for base in bases:
-                t_dict.update(base.__dict__)
-
-            ## __init__
-            def __init__(self, **kw):
-                eval("super().__init__()")
-                self.__dict__.update(kw)
-
-            t_dict["__init__"] = __init__
-
-            ## __call__
-            uses_self = inspect.getfullargspec(fn).args[0] == "self"
-
-            if uses_self:
-
-                def __call__(self, *a, **kw):
-                    return fn(self, *a, **kw)
-
-            else:
-
-                def __call__(self, *a, **kw):
-                    return fn(*a, **kw)
-
-            t_dict["__call__"] = __call__
-
-            ## create type
-            t = type(fn.__name__, bases, t_dict)
-            return t
-
-        else:
-            raise ValueError("hoists decorator does not support this type")
-
-    return hoists_decorator
-
-
-def declare(init_fn=None, name=None, frames_above=1, parent=None):
-    
-    if name is None:
-        name = randint(0, 1e32)
-    
-    if parent is None:
-        # get containing function
-        ## Get the current frame of the execution stack
-        frame = inspect.currentframe()
-        ## Get the previous frame, which is the caller's frame
-        for _ in range(frames_above):
-            frame = frame.f_back
-        ## Get the code object from the caller's frame
-        caller_code = frame.f_code
-        ## Get the function object by its name from the caller's global namespace
-        fn = frame.f_globals[caller_code.co_name]
-        if hasattr(fn, "__self__"):
-            ## fn is a method
-            parent = fn.__self__.__class__
-        else:
-            parent = fn
-
-    # attach to obj
-    if not hasattr(parent, name):
-        ## has not already been created
-        if init_fn is not None:
-            obj = init_fn()
-        else:
-            obj = None
-        setattr(parent, name, obj)
-        ## add to hoisted list
-        if not hasattr(parent, "__hoisted__"):
-            setattr(parent, "__hoisted__", {})
-        parent.__hoisted__[name] = obj
-    else:
-        ## has already been created
-        obj = getattr(parent, name)
-    return obj
 
 
 class _Buffered:
@@ -216,92 +108,6 @@ class _Buffered:
 def buffered(fn, wait=False):
     return declare(_Buffered(fn, wait=wait), frames_above=2,
                  name=None if fn.__name__ == "<lambda>" else fn.__name__)
-
-
-# TODO: OCRProcessor should
-#   1) be run on the eye_env_wrapper in that separate process to prevent GIL blocking
-#   2) use the _Buffered class to minimize code duplication
-class OCRProcessor:
-    
-    OCR_Threads = 4
-    
-    @dataclass
-    class Result:
-        text: list[str]
-        confidence: list[float]
-        boxes: list[tuple[int, int, int, int]]
-
-    _image_queue: mp.Queue
-    _result_queue: mp.Queue
-    
-    _image_lock: mp.Lock
-    _result_lock: mp.Lock
-    
-    _process: mp.Process
-    
-    def __init__(self):
-        self._process = mp.Process(target=self._loop, args=(self,), daemon=True)
-
-    def start(self):
-        self._process.start()
-        
-    def stop(self):
-        if not self._process.is_alive():
-            return
-        self._process.join()
-
-    def add_image(self, image):
-        with self._images_lock:
-            self._image_queue.put(image)
-
-    def get_result(self):
-        with self._result_lock: # required to prevent sampling after .empty() but before .put()
-            return self._result_queue.get() # we want it to block until there is a result
-
-    def _step(self):
-
-        with self._images_lock:
-            image = self._image_queue.get()
-            self._image_queue.empty()
-
-        image = Image(image.numpy().astype(np.uint8))
-
-        with PyTessBaseAPI() as api:
-            api.SetImage(image)
-            boxes = api.GetComponentImages(RIL.TEXTLINE, True)
-
-        # work in parallel
-        box_splits = itertools.groupby(boxes, lambda x: x[0] % OCRProcessor.OCR_Threads)
-        def process_split(i):
-            with PyTessBaseAPI() as api:
-                api.SetImage(image)
-                result_i = OCRProcessor.Result([], [], [])
-                for _, box, _, _ in box_splits[i]:
-                    api.SetRectangle(box['x'], box['y'], box['w'], box['h'])
-                    ocrResult = api.GetUTF8Text()
-                    conf = api.MeanTextConf() # confidence, 0-100
-
-                    # append to result_i
-                    result_i.text.append(ocrResult)
-                    result_i.confidence.append(conf)
-                    result_i.boxes.append((box['x'], box['y'], box['w'], box['h']))
-            return result_i
-        with mp.Pool(OCRProcessor.OCR_Threads) as pool:
-            result_is = pool.map(process_split, box_splits) # waits for all threads to finish
-        result = OCRProcessor.Result(
-            text=sum(*[result_i.text for result_i in result_is]),
-            confidence=sum(*[result_i.confidence for result_i in result_is]),
-            boxes=sum(*[result_i.boxes for result_i in result_is]),
-        )
-
-        with self._results_lock:
-            self.results.empty()
-            self.results.put(result)
-
-    def _loop(self):
-        while not self._process.is_alive():
-            self._step()
-
 
 def skipnone(fn):
     @functools.wraps(fn)
