@@ -17,7 +17,7 @@ import torch
 import torchaudio
 import transformers
 
-from hoists import declare
+from hoists import declare, hoists
 
 Tensor = ivy.Tensor
 
@@ -42,6 +42,7 @@ class tree(typing.Generic[T]):
 class Agent:
     def act(self, obs):
         pass
+
     def train(self, traj):
         pass
 
@@ -69,7 +70,7 @@ class _Buffered:
     def __call__(self, *args, **kwargs):
         with self._inputs_lock:
             self._input_queue.put((args, kwargs))
-        with self._output_lock: # required to prevent sampling after .empty() but before .put()
+        with self._output_lock:  # required to prevent sampling after .empty() but before .put()
             if self.wait:
                 return self._output_queue.get()
             else:
@@ -106,8 +107,12 @@ class _Buffered:
 
 
 def buffered(fn, wait=False):
-    return declare(_Buffered(fn, wait=wait), frames_above=2,
-                 name=None if fn.__name__ == "<lambda>" else fn.__name__)
+    return declare(
+        _Buffered(fn, wait=wait),
+        frames_above=2,
+        name=None if fn.__name__ == "<lambda>" else fn.__name__,
+    )
+
 
 def skipnone(fn):
     @functools.wraps(fn)
@@ -115,6 +120,7 @@ def skipnone(fn):
         if args[0] is None:
             return None
         return fn(*args, **kwargs)
+
     return wrapper
 
 
@@ -122,7 +128,6 @@ class tc:
     @staticmethod
     def enbode(obj):
         return obj
-
 
 
 @dataclass
@@ -147,7 +152,7 @@ class Action:
 
 
 class Computatrum(Agent):
-    
+
     NUM_MOUSE_BUTTONS = 3
     NUM_KEYS = 256
 
@@ -157,9 +162,9 @@ class Computatrum(Agent):
     enable_action = True
     enable_online_learning = True
     enable_offline_learning = False
-    
+
     user_conversation: list[Message]
-    
+
     def __init__(self) -> None:
         self._setup = False
 
@@ -168,126 +173,175 @@ class Computatrum(Agent):
 
     @hoists
     def act(self, obs: Observation) -> Action:
-        B = obs.text.shape[0] # batch size
+        B = obs.text.shape[0]  # batch size
 
         if not self._setup:
             self.setup(B)
 
-        prev_action = declare('prev_action', lambda : Action(
-            output_text=['' for _ in range(B)],
-            cursor_movement=ivy.zeros((B, 1, 2)),
-            mouse_button_changes=ivy.zeros((B, 1, Computatrum.NUM_MOUSE_BUTTONS)),
-            mouse_wheel_movement=ivy.zeros((B, 1, 1)),
-            keyboard_key_changes=ivy.zeros((B, 1, Computatrum.NUM_KEYS)),
-        ))
+        prev_action = declare(
+            "prev_action",
+            lambda: Action(
+                output_text=["" for _ in range(B)],
+                cursor_movement=ivy.zeros((B, 1, 2)),
+                mouse_button_changes=ivy.zeros((B, 1, Computatrum.NUM_MOUSE_BUTTONS)),
+                mouse_wheel_movement=ivy.zeros((B, 1, 1)),
+                keyboard_key_changes=ivy.zeros((B, 1, Computatrum.NUM_KEYS)),
+            ),
+        )
 
         ## Perception ##################################################
         if self.enable_perception:
+
             class undirected_perception:
                 ### Undirected perception
                 inputs = {
-                    'input_text': obs.input_text,
-                    'audio': obs.audio,
-                    'screen': obs.screen,
-                    'screen_text': obs.screen_text,
-                    'cursor_loc': obs.cursor_loc,
-                    'mouse_wheel': obs.mouse_wheel,
-                    'mouse_state': obs.mouse_state,
-                    'keyboard_state': obs.keyboard_state,
-                    'output_text': prev_action.output_text,
-                    'cursor_movement': prev_action.cursor_movement,
-                    'mouse_button_changes': prev_action.mouse_button_changes,
-                    'mouse_wheel_movement': prev_action.mouse_wheel_movement,
-                    'keyboard_key_changes': prev_action.keyboard_key_changes,
+                    "input_text": obs.input_text,
+                    "audio": obs.audio,
+                    "screen": obs.screen,
+                    "screen_text": obs.screen_text,
+                    "cursor_loc": obs.cursor_loc,
+                    "mouse_wheel": obs.mouse_wheel,
+                    "mouse_state": obs.mouse_state,
+                    "keyboard_state": obs.keyboard_state,
+                    "output_text": prev_action.output_text,
+                    "cursor_movement": prev_action.cursor_movement,
+                    "mouse_button_changes": prev_action.mouse_button_changes,
+                    "mouse_wheel_movement": prev_action.mouse_wheel_movement,
+                    "keyboard_key_changes": prev_action.keyboard_key_changes,
                 }
+
                 def build_encoders():
                     ## all text
-                    text_encoder = tc.Encoder.for_inputs('')
-                    
+                    text_encoder = tc.Encoder.for_inputs("")
+
                     ## audio
                     # https://huggingface.co/facebook/wav2vec2-base-960h
-                    wav2vec2_processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base-960h")
-                    wav2vec2 = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-base-960h")
-                    
+                    wav2vec2_processor = Wav2Vec2Processor.from_pretrained(
+                        "facebook/wav2vec2-base-960h"
+                    )
+                    wav2vec2 = Wav2Vec2ForCTC.from_pretrained(
+                        "facebook/wav2vec2-base-960h"
+                    )
+
                     ## screen
-                    screen_encoder = 
-                    
+                    screen_encoder = TODO()
+
                     ## cursor
-                    cursor_loc_enc = tc.Encoder.for_inputs({
-                        'cursor_loc',
-                        'mouse_wheel',
-                        'mouse_state',
-                        'cursor_movement',
-                        'mouse_button_changes',
-                        'mouse_wheel_movement'
-                    })
-                    
+                    cursor_loc_enc = tc.Encoder.for_inputs(
+                        {
+                            "cursor_loc",
+                            "mouse_wheel",
+                            "mouse_state",
+                            "cursor_movement",
+                            "mouse_button_changes",
+                            "mouse_wheel_movement",
+                        }
+                    )
+
                     # keyboard
-                    keyboard_state_enc = tc.Encoder.for_inputs({
-                        'keyboard_state'
-                        'keyboard_key_changes'
-                    })
+                    keyboard_state_enc = tc.Encoder.for_inputs(
+                        {"keyboard_state" "keyboard_key_changes"}
+                    )
 
                     return {
-                        'input_text': text_encoder,
-                        'audio': audio_encoder,
-                        'screen': screen_encoder,
-                        'screen_text': text_encoder,
-                        'mouse': mouse_encoder,
-                        'keyboard': keyboard_encoder,
-                        'output_text': text_encoder,
+                        "input_text": text_encoder,
+                        "audio": audio_encoder,
+                        "screen": screen_encoder,
+                        "screen_text": text_encoder,
+                        "mouse": mouse_encoder,
+                        "keyboard": keyboard_encoder,
+                        "output_text": text_encoder,
                     }
 
-                encoders = declare(build_encoders, name='unsupervised_perception_encoders')
+                encoders = declare(
+                    build_encoders, name="unsupervised_perception_encoders"
+                )
 
                 encoded_inputs = {
-                    'input_text': buffered(skipnone(encoders['input_text']))(input['input_text']),
-                    'audio': ,
-                    'screen': ,
-                    'screen_text': ,
-                    'mouse': ,
-                    'keyboard': ,
-                    'output_text':
-                    
+                    "input_text": buffered(skipnone(encoders["input_text"]))(
+                        input["input_text"]
+                    ),
+                    "audio": None,
+                    "screen": None,
+                    "screen_text": None,
+                    "mouse": None,
+                    "keyboard": None,
+                    "output_text": None,
                 }
-                
+
                 if self.enable_online_learning:
-                    decoders = {
-                        
-                    }
+                    decoders = {}
                     reconstructed_inputs = {
-                        name: buffered(skipnone(lambda val : decoder(val)))(encoded_inputs[name])
+                        name: buffered(skipnone(lambda val: decoder(val)))(
+                            encoded_inputs[name]
+                        )
                         for name, decoder in decoders.items()
                     }
-            
+
             ### Directed perception
-            
+            ## TODO: visual chat gpt
+
             ### Sensorimotor fusion
-        
+
         ## Introception ##################################################
         if self.enable_introception:
-            
+            pass
+
             ### Undirected associative memory retrieval
-            
+
             ### Directed associative memory retrieval
-        
+
         ## Integration ##################################################
         if self.enable_integration:
-            
+
+            ### The big loop
+            def build_integration_core_cell():
+                swift_former_attention_layer = SwiftFormer.from_pretrained().layers[
+                    "1:6"
+                ]  # TODO: use swift former because it is fast and efficient
+                lm_attention_layer = (
+                    TODO()
+                )  # TODO: find a good language model pretrained attention layer
+                hopfield_network = (
+                    TODO()
+                )  # TODO: find a good floating point valued hopfield network
+                mlp = (
+                    TODO()
+                )  # TODO: freshly inited mlp (input) -> (output, x1a, x1b, x2a)
+
+                def integration_core_cell(input, recurrent):
+
+                    x1a = swift_former_attention_layer(
+                        query=recurrent["q1a"], key=input, value=input
+                    )
+                    x1b = lm_attention_layer(
+                        query=recurrent["q1b"], key=input, value=input
+                    )
+                    x1 = concat(x1a, x1b)
+                    x2a = hopfield_network(x1, recurrent=recurrent["x2a"])
+                    x2 = x2a + x1
+                    output, x1a, x1b, x2a = mlp(x2)
+
+                    return output, {"q1a": x1a, "q1b": x1b, "x2a": x2a}
+
+            integration_core_cell = declare(
+                build_integration_core_cell, name="integration_core_cell"
+            )
+
             ### Surprise
-            
+
             ### Valency
-            
+
             ### Arousal (learned)
-            
+
             ### Fusion
-            
+
             ### Curiosity
-        
+
             ### Add new memories to VectorDB
-        
+
         ## Action ##################################################
-        
+
         if not self.enable_action:
             action = Action(
                 text=[],
@@ -297,15 +351,16 @@ class Computatrum(Agent):
                 keyboard_key_changes=ivy.zeros((B, 1, Computatrum.NUM_KEYS)),
             )
         if self.enable_action:
-            
-            
+            pass
+
         ## Online Learning ##################################################
         if self.enable_online_learning:
-            
+            pass
+
         ## Offline Learning ##################################################
         if self.enable_offline_learning:
-            
-            
+            pass
+
         self.prev_action = action
         return action
 

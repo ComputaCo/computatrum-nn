@@ -8,7 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 ivy = "^6.4.1"
-gymnasium = "^0.27.1"
+gymnasium = "^0.28.1"
 tesserocr = "^2.6.0"
 pillow = "^9.4.0"
 sentence-transformers = "^2.2.2"
@@ -16,11 +16,13 @@ transformers = "^4.27.1"
 torch = "^2.0.0"
 torchvision = "^0.15.1"
 torchaudio = "^2.0.1"
-typer = {version = "^0.7.0", extras = ["all"]}
+typer = { version = "^0.7.0", extras = ["all"] }
 websockets = "^10.4"
 fastapi = "^0.95.0"
 uvicorn = "^0.21.1"
 pydantic = "^1.10.6"
+hoists = { git = "https://github.com/Limboid/hoists.git" }
+computer-envs = {git = "https://github.com/Limboid/computer-env.git"}
 
 
 [build-system]
