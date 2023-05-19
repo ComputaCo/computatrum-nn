@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+<<<<<<< HEAD
 # node
 node_modules/
 
@@ -10,6 +11,8 @@ node_modules/
 .venv
 .venv/
 
+=======
+>>>>>>> f477bc694febea204c4b56ce1855cf5a9b990588
 # C extensions
 *.so
 
